@@ -1,0 +1,24 @@
+# fetch latest golang 
+FROM golang:alpine
+
+RUN mkdir /app
+# set current workdir
+WORKDIR /app
+
+# Copy go.mod and go.sum so that we download on the dependencies 
+COPY go.mod .
+COPY go.sum .
+# Copy internal / private libs (if any) 
+# 
+# download the libs
+RUN go mod download && go mod verify
+
+# Copy the source code 
+COPY . .
+
+# build deko image
+RUN go build -v -o main .
+
+EXPOSE 9000
+
+CMD ["/app/main"]
