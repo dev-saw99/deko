@@ -1,0 +1,1 @@
+![Deko Logo](./deko-logo.png)
