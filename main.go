@@ -24,9 +24,9 @@ func main() {
 	var compilerDNS string
 
 	if isSandboxEnv {
-		compilerDNS = constants.DEKO_BRIDGE_CONTAINER_HOST_PORT
+		compilerDNS = constants.DEKO_BRIDGE_SANDBOX_CONTAINER_HOST_PORT
 	} else {
-		compilerDNS = constants.DEKO_BRIDGE_CONTAINER_HOST_PORT
+		compilerDNS = constants.DEKO_BRIDGE_LOCALHOST_CONTAINER_HOST_PORT
 	}
 	handler.CompilerClient = compiler.NewCompiler(compilerDNS)
 	utils.Logger.Infow("Initialising Compiler Client")

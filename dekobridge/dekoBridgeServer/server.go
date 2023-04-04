@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"sync"
 	"time"
 
@@ -111,14 +112,18 @@ loop:
 	}
 }
 
-func deleteFile(filename string, messageId string) {
-	err := os.Remove(filename)
+func deleteFileAndFolder(folderName string, messageId string) {
+	err := os.RemoveAll(folderName)
 	if err != nil {
 		utils.Logger.Infow("Error while removing file",
 			"error", err,
-			"filename", filename,
+			"foldername", folderName,
 			"message_id", messageId)
 	}
+	utils.Logger.Infow("Removed folder",
+		"foldername", folderName,
+		"message_id", messageId,
+	)
 }
 
 func createFile(filename string, messageId string, sourceCode string) error {
@@ -130,14 +135,24 @@ func createFile(filename string, messageId string, sourceCode string) error {
 		return err
 	}
 	io.WriteString(file, sourceCode)
+	utils.Logger.Infow("created file",
+		"filename", filename,
+		"message_id", messageId,
+	)
 	return nil
 }
 
 func runCode(outputChan chan<- *v1.WSOutputInterface, sourceCode string, messageId string, fileExtension string, runCmd string, runArgs []string) {
 
 	// create a file
-	filename := constants.SOURCE_CODE_DIR + "/" + messageId + fileExtension
-	if err := createFile(filename, messageId, sourceCode); err != nil {
+	rootDir := constants.SOURCE_CODE_DIR
+	jailDir := rootDir + "/" + messageId
+	err := os.MkdirAll(jailDir, 0755)
+	if err != nil {
+		utils.Logger.Infow("Unable to create a file for compile and run",
+			"error", err,
+			"message_id", messageId)
+
 		outputChan <- &v1.WSOutputInterface{
 			Message:    "Internal Server Error",
 			StatusCode: constants.STATUS_DEFAULT_ERROR,
@@ -145,15 +160,28 @@ func runCode(outputChan chan<- *v1.WSOutputInterface, sourceCode string, message
 		}
 		return
 	}
-	defer deleteFile(filename, messageId)
+	filename := jailDir + "/" + messageId + fileExtension
+	if err := createFile(filename, messageId, sourceCode); err != nil {
+		outputChan <- &v1.WSOutputInterface{
+			Message:    "Internal Server Error",
+			StatusCode: constants.STATUS_DEFAULT_ERROR,
+			MessageId:  messageId,
+		}
+		return
+	} // delete files and folders once done.
+	defer deleteFileAndFolder(jailDir, messageId)
 
 	runArgs = append(runArgs, filename)
-
 	// create command to execute
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, runCmd, runArgs...)
+	cmd := exec.CommandContext(ctx, "pwd")
 
+	// set chroot jail, chroot jail is a way to isolate a process from the rest of the system by setting its root directory to a specific directory.
+	// cmd.SysProcAttr = &syscall.SysProcAttr{
+	// 	Chroot: rootDir,
+	// }
+	// cmd.Dir = jailDir
 	// save the pipes to read ouput and error
 	outputPipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -271,11 +299,23 @@ func readDataFromPipe(pipe io.ReadCloser, messageId string, pipeType string, out
 
 // deployServer start a gRPC server and listens for the connections at port 50051
 func deployServer() {
-	serverPort := os.Getenv("DEKO_BRIDGE_PORT")
-	utils.Logger.Infow("Creating listener for gRPC server",
-		"port", serverPort)
+	isSandboxEnv, err := strconv.ParseBool(os.Getenv("SANDBOX_ENV"))
+	if err != nil {
+		utils.Logger.Infow("SANDBOX_ENV env variable not found, setting isSandboxEnv to False")
+		isSandboxEnv = false
+	}
+	var compilerDNS string
 
-	lis, err := net.Listen("tcp", serverPort)
+	if isSandboxEnv {
+		compilerDNS = constants.DEKO_BRIDGE_SANDBOX_CONTAINER_HOST_PORT
+	} else {
+		compilerDNS = constants.DEKO_BRIDGE_LOCALHOST_CONTAINER_HOST_PORT
+	}
+
+	utils.Logger.Infow("Creating listener for gRPC server",
+		"port", compilerDNS)
+
+	lis, err := net.Listen("tcp", compilerDNS)
 	if err != nil {
 		utils.Logger.Errorw("Unable to create the listener gRPC server",
 			"error", err)
@@ -299,5 +339,7 @@ func deployServer() {
 
 func Process() {
 	utils.Logger.Infow("Starting DekoBridge ...")
+	os.MkdirAll(constants.SOURCE_CODE_DIR, 0755)
+	defer os.RemoveAll(constants.SOURCE_CODE_DIR)
 	deployServer()
 }

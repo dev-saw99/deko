@@ -37,7 +37,7 @@ const (
 	PIPE_TYPE_ERROR  = "pipe-error"
 	PIPE_TYPE_OUTPUT = "pipe-output"
 
-	SOURCE_CODE_DIR = "sourceCodeDir"
+	SOURCE_CODE_DIR = "app/sourceCodeDir"
 )
 
 const (
@@ -52,7 +52,8 @@ const (
 
 const (
 	// configuration
-	DEKO_BRIDGE_CONTAINER_HOST_PORT = "deko-bridge:50051"
-	DEKO_BRIDGE_LOG_FILE            = "deko-bridge.log"
-	DEKO_LOG_FILE                   = "deko.log"
+	DEKO_BRIDGE_SANDBOX_CONTAINER_HOST_PORT   = "deko-bridge:50051"
+	DEKO_BRIDGE_LOCALHOST_CONTAINER_HOST_PORT = "localhost:50051"
+	DEKO_BRIDGE_LOG_FILE                      = "deko-bridge.log"
+	DEKO_LOG_FILE                             = "deko.log"
 )

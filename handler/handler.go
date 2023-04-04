@@ -46,7 +46,7 @@ loop:
 		case output := <-outputMessageChannel:
 			// fmt.Println("OUTPUT", output)
 			wsClient.SendMessage(output)
-			if isCompileCompleted(int(output.StatusCode)) {
+			if isCompilationCompleted(int(output.StatusCode)) {
 				wsClient.Close()
 				cancel()
 				break loop
@@ -61,7 +61,7 @@ loop:
 	wg.Wait()
 }
 
-func isCompileCompleted(statusCode int) bool {
+func isCompilationCompleted(statusCode int) bool {
 
 	switch statusCode {
 	case constants.STATUS_COMPILE_DONE:

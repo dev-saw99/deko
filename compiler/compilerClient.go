@@ -39,7 +39,8 @@ func (c *Compiler) CompileCode(input *pb.WSInputInterface, outputChan chan<- *pb
 	stream, err := c.Client.CompileSource(ctx, input)
 	if err != nil {
 		utils.Logger.Infow("Unable to open stream for compilation",
-			"message_id", input.MessageId)
+			"message_id", input.MessageId,
+			"error", err)
 	}
 	fmt.Println(stream)
 	var wg sync.WaitGroup
