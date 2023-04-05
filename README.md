@@ -27,6 +27,10 @@ Overall, DEKO is a powerful and versatile online compiler that provides a flexib
     ```
 4. You can now access DEKO at `localhost:9000`
 
+## High Level Diagram
+
+![High Level Diagram](./deko-hld.png)
+
 ## API Documentation
 
 
