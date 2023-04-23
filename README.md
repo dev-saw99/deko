@@ -23,7 +23,8 @@ Overall, DEKO is a powerful and versatile online compiler that provides a flexib
     ```
 3. Create and run docker containers
     ```docker 
-    docker-compose up -d
+    chmod +x build.sh
+    ./build.sh
     ```
 4. You can now access DEKO at `localhost:9000`
 
