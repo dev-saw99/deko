@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  deko:
+    container_name: "deko"
+    build:
+      dockerfile: deployment/Dockerfile.deko
+      context: .
+    ports:
+      - "9000:9000"
+    networks:
+      - deko-network
+
+  deko-bridge:
+    container_name: "deko-bridge"
+    build:
+      dockerfile: deployment/Dockerfile.dekobridge
+      context: .
+    ports:
+      - "50051:50051"
+    networks:
+      - deko-network
+
+networks:
+  deko-network:
+    driver: bridge
