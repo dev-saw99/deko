@@ -1,24 +1,13 @@
-# fetch latest golang 
-FROM golang:alpine
+# Use a minimal base image
+FROM ubuntu:latest
 
-RUN mkdir /app
-# set current workdir
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy go.mod and go.sum so that we download on the dependencies 
-COPY go.mod .
-COPY go.sum .
-# Copy internal / private libs (if any) 
-# 
-# download the libs
-RUN go mod download && go mod verify
+ENV SANDBOX_ENV="true"
+# Copy the compiled Go binary into the container
+COPY /deko /app/
 
-# Copy the source code 
-COPY . .
+# Set the entrypoint for the container
+CMD ["/app/deko"]
 
-# build deko image
-RUN go build -v -o main .
-
-EXPOSE 9000
-
-CMD ["/app/main"]

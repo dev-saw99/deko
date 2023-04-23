@@ -37,7 +37,8 @@ const (
 	PIPE_TYPE_ERROR  = "pipe-error"
 	PIPE_TYPE_OUTPUT = "pipe-output"
 
-	SOURCE_CODE_DIR = "app/sourceCodeDir"
+	JAIL_DIR        = "jailDir"
+	SOURCE_CODE_DIR = "sourceCodeDir"
 )
 
 const (

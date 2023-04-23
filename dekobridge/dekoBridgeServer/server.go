@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strconv"
 	"sync"
-	"time"
 
 	v1 "github.com/dev-saw99/deko/proto"
 	"github.com/dev-saw99/deko/utils"
@@ -86,32 +85,6 @@ func parseAndExecute(input *v1.WSInputInterface) (<-chan *v1.WSOutputInterface, 
 	return outputChan, nil
 }
 
-func killProcess(ctx context.Context, cancel context.CancelFunc, outputChan chan<- *v1.WSOutputInterface, messageId string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var timeOut bool
-
-loop:
-	for {
-		select {
-		case <-ctx.Done():
-			break loop
-		case <-time.After(constants.TIMEOUT_DURATION):
-			utils.Logger.Infow("TIMEOUT, Killing the process",
-				"message_id", messageId)
-			timeOut = true
-			cancel()
-			break loop
-		}
-	}
-	if timeOut {
-		outputChan <- &v1.WSOutputInterface{
-			Message:    "TIMEOUT",
-			MessageId:  messageId,
-			StatusCode: constants.STATUS_TIMEOUT,
-		}
-	}
-}
-
 func deleteFileAndFolder(folderName string, messageId string) {
 	err := os.RemoveAll(folderName)
 	if err != nil {
@@ -145,9 +118,8 @@ func createFile(filename string, messageId string, sourceCode string) error {
 func runCode(outputChan chan<- *v1.WSOutputInterface, sourceCode string, messageId string, fileExtension string, runCmd string, runArgs []string) {
 
 	// create a file
-	rootDir := constants.SOURCE_CODE_DIR
-	jailDir := rootDir + "/" + messageId
-	err := os.MkdirAll(jailDir, 0755)
+	sourceCodeDir := constants.SOURCE_CODE_DIR
+	err := os.MkdirAll(sourceCodeDir, 0755)
 	if err != nil {
 		utils.Logger.Infow("Unable to create a file for compile and run",
 			"error", err,
@@ -160,7 +132,7 @@ func runCode(outputChan chan<- *v1.WSOutputInterface, sourceCode string, message
 		}
 		return
 	}
-	filename := jailDir + "/" + messageId + fileExtension
+	filename := sourceCodeDir + "/" + messageId + fileExtension
 	if err := createFile(filename, messageId, sourceCode); err != nil {
 		outputChan <- &v1.WSOutputInterface{
 			Message:    "Internal Server Error",
@@ -169,19 +141,14 @@ func runCode(outputChan chan<- *v1.WSOutputInterface, sourceCode string, message
 		}
 		return
 	} // delete files and folders once done.
-	defer deleteFileAndFolder(jailDir, messageId)
+	defer deleteFileAndFolder(filename, messageId)
 
 	runArgs = append(runArgs, filename)
 	// create command to execute
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.TIMEOUT_DURATION)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "pwd")
+	cmd := exec.CommandContext(ctx, runCmd, runArgs...)
 
-	// set chroot jail, chroot jail is a way to isolate a process from the rest of the system by setting its root directory to a specific directory.
-	// cmd.SysProcAttr = &syscall.SysProcAttr{
-	// 	Chroot: rootDir,
-	// }
-	// cmd.Dir = jailDir
 	// save the pipes to read ouput and error
 	outputPipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -226,8 +193,6 @@ func runCode(outputChan chan<- *v1.WSOutputInterface, sourceCode string, message
 	go readDataFromPipe(errPipe, messageId, constants.PIPE_TYPE_ERROR, outputChan, ctx, &wg)
 	wg.Add(1)
 	go readDataFromPipe(outputPipe, messageId, constants.PIPE_TYPE_OUTPUT, outputChan, ctx, &wg)
-	wg.Add(1)
-	go killProcess(ctx, cancel, outputChan, messageId, &wg)
 
 	wg.Wait()
 	utils.Logger.Infow("Compilation completed",
@@ -235,7 +200,7 @@ func runCode(outputChan chan<- *v1.WSOutputInterface, sourceCode string, message
 	outputChan <- &v1.WSOutputInterface{
 		StatusCode: constants.STATUS_COMPILE_DONE,
 		MessageId:  messageId,
-		Message:    constants.MSG_COMPILE_CODE,
+		Message:    constants.MSG_COMPILE_COMPLETED,
 	}
 
 	err = cmd.Wait()
@@ -279,10 +244,7 @@ func readDataFromPipe(pipe io.ReadCloser, messageId string, pipeType string, out
 				}
 			}
 			if err == nil && n > 0 {
-				utils.Logger.Infow("asd",
-					"pipeType", pipeType,
-					"message_id", messageId,
-				)
+
 				wsOutput := v1.WSOutputInterface{}
 				if pipeType == constants.PIPE_TYPE_ERROR {
 					wsOutput.Error = string(buff[:n])
